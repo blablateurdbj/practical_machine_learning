@@ -1,0 +1,131 @@
+---
+title: "practical Machine learning Final Project"
+author: "Benjie DAI"
+date: "9/16/2021"
+output: html_document
+---
+## Background
+This is the final project for the "Pratical Machine Learning" cours in Coursera, 
+In this project, the goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell. 
+and we will try to predict the manner which people did the exercise(into 5 differents classes). source of data: http://groupware.les.inf.puc-rio.br/har.
+
+## Read the training data
+```{r setup}
+data <- read.csv("pml-training.csv")
+summary(data)
+str(data)
+table(data$classe)
+```
+## check the not Na Ratio
+```{r not na}
+nacount <- apply(data,2, function(x) {sum(!is.na(x))/length(x)})
+nacount
+```
+
+## Identify the columns to keep with criteria : not NA value ratio > 80%
+```{r}
+keepcol=c()
+counter=1
+for (i in (1:length(nacount))) {
+  if(nacount[[i]]>0.8){
+    keepcol[counter] <- names(nacount[i])
+    counter <- counter+1
+  }
+}
+data1 <- subset(data,select =keepcol)
+```
+## drop the useless information
+```{r}
+useless <- c("X","user_name","raw_timestamp_part_1","raw_timestamp_part_2","cvtd_timestamp",
+             "new_window","num_window")
+data2 <- data1[,!(names(data1) %in% useless)]
+```
+## drop the columns where contains 90% of emply data
+```{r}
+emptydata <- c("kurtosis_roll_belt","kurtosis_picth_belt","kurtosis_picth_belt","kurtosis_yaw_belt",
+               "skewness_roll_belt","skewness_roll_belt.1","skewness_yaw_belt",
+              "max_yaw_belt","min_yaw_belt","amplitude_yaw_belt","kurtosis_roll_arm",
+              "kurtosis_picth_arm","kurtosis_yaw_arm","skewness_roll_arm","skewness_pitch_arm",
+              "skewness_yaw_arm","kurtosis_roll_dumbbell","kurtosis_picth_dumbbell",
+              "kurtosis_yaw_dumbbell","skewness_roll_dumbbell","skewness_pitch_dumbbell",
+              "skewness_yaw_dumbbell","max_yaw_dumbbell","min_yaw_dumbbell","amplitude_yaw_dumbbell",
+              "kurtosis_roll_forearm","kurtosis_picth_forearm","kurtosis_yaw_forearm",
+              "skewness_roll_forearm","skewness_pitch_forearm","skewness_yaw_forearm",
+              "max_yaw_forearm","min_yaw_forearm","amplitude_yaw_forearm")
+```
+## drop all columns need to be removed
+```{r}
+data3 <- data2[,!names(data2) %in% emptydata]
+summary(data3)
+```
+## check if there is any remaining NA value
+```{r}
+sum(!is.na(data3))
+```
+## read the tesint data and keep the same columns as cleaned training data
+```{r}
+testing <- read.csv("pml-testing.csv")
+test1 <- subset(testing,select = names(data3)[1:52])
+str(test1)
+sum(is.na(test1))
+```
+## data preparation: training split into training and testing
+```{r}
+library(caret)
+inTrain <- createDataPartition(y=data3$classe,p=0.7,list=FALSE)
+training <- data3[inTrain,]
+testing <- data3[-inTrain,]
+```
+
+## decisition tree
+```{r}
+treefit <- train(classe~.,data=training,method="rpart")
+predtree <- predict(treefit,testing)
+table(predtree,testing$classe)
+confusionMatrix(predtree,factor(testing$classe))
+```
+## Plot decision tree
+```{r}
+plot(treefit)
+```
+
+## Random forest
+```{r}
+#modFit <- train(classe~.,data=training,method="rf",prox=TRUE)
+#modFit
+rfFit <- readRDS("randomforest.rds")
+predrf <- predict(rfFit,testing)
+table(predrf,testing$classe)
+confusionMatrix(predrf,factor(testing$classe))
+```
+## Plot RF model
+```{r}
+plot(rfFit)
+```
+
+## gradient Boosted trees
+```{r}
+#mod_gbm <- train(classe~.,data=training,method="gbm",verbose=F)
+mod_gbt <- readRDS("mod_gbm")
+predgbm <- predict(mod_gbt,testing)
+confusionMatrix(predgbm,factor(testing$classe))
+
+```
+## Plot GBT
+```{r}
+plot(mod_gbt)
+```
+
+
+## Conclusion
+The best fit model is randow forest:with 0.9976 accuracy outperforming other models
+
+## prediction on the test data set
+```{r}
+predtest <- predict(rfFit,test1)
+predtest
+```
+
+
+
+
